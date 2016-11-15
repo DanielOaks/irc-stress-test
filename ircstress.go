@@ -61,12 +61,14 @@ Options:
 			}
 
 			newServer := stress.Server{
-				Name:  serverList[0],
-				Addr:  serverList[1],
-				IsTLS: isTLS,
+				Name: serverList[0],
+				Conn: stress.ServerConnectionDetails{
+					Address: serverList[1],
+					IsTLS:   isTLS,
+				},
 			}
 
-			fmt.Println("Running server", newServer.Name, ":", newServer.Addr)
+			fmt.Println("Running server", newServer.Name, ":", newServer.Conn.Address)
 
 			servers[newServer.Name] = &newServer
 		}
@@ -82,23 +84,41 @@ Options:
 
 		clients := make(map[int]*stress.Client)
 		for i := 0; i < clientCount; i++ {
-			var newClient stress.Client
-			newClient.Nick = fmt.Sprintf("cli%d", i)
+			var newClient *stress.Client
+			newClient = &stress.Client{
+				Nick: fmt.Sprintf("cli%d", i),
+			}
+
+			clients[i] = newClient
 
 			// for now we'll just have one event list per client for simplicity
-			events := make(stress.EventQueue, 0)
-			events = append(events, stress.Event{
-				Client: &newClient,
+			events := stress.NewEventQueue()
+			events.Events = append(events.Events, stress.Event{
+				Client: i,
 				Type:   stress.ETConnect,
 			})
-			events = append(events, stress.Event{
-				Client: &newClient,
+			//TODO(dan): send NICK/USER
+			events.Events = append(events.Events, stress.Event{
+				Client: i,
 				Type:   stress.ETDisconnect,
 			})
 
 			eventQueues = append(eventQueues, events)
+		}
 
-			clients[i] = &newClient
+		// run for each server
+		for name, server := range servers {
+			fmt.Println("Testing", name)
+
+			// start each event queue
+			for _, events := range eventQueues {
+				go events.Run(server, clients)
+			}
+
+			// wait for each of them to be finished
+			for _, events := range eventQueues {
+				<-events.Finished
+			}
 		}
 	}
 }

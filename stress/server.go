@@ -3,9 +3,14 @@
 
 package stress
 
+// ServerConnectionDetails holds the details used to connect to the server.
+type ServerConnectionDetails struct {
+	Address string
+	IsTLS   bool
+}
+
 // Server represents a server we are stress-testing.
 type Server struct {
-	Name  string
-	Addr  string
-	IsTLS bool
+	Name string
+	Conn ServerConnectionDetails
 }

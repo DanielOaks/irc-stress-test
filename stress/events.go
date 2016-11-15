@@ -30,7 +30,7 @@ type WaitMessage struct {
 
 // Event is an IRC event.
 type Event struct {
-	Client Client
+	Client *Client
 	Type   EventType
 	Line   *string
 	Wait   *WaitMessage

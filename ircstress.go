@@ -6,6 +6,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 
 	"github.com/DanielOaks/irc-stress-test/stress"
@@ -20,10 +21,10 @@ Usage:
 	ircstress --version
 Options:
 	--clients=<num>              The number of clients that should connect [default: 10000].
-	--chan-ratio=<ratio>         How many channels there should be compared to number of clients, default 30% [default: 0.3].
+	--channels=<chans>           How many channels exist, limited to number of clients [default: 1000].
 	--chan-join-percent=<ratio>  How likely each client is to join one or more channels [default: 0.9].
 
-	--queues=<num>     How many queues to run events on, limited to number of clients that exist [default: 3].
+	--queues=<num>     How many queues to run events on, limited to number of clients [default: 3].
 	--wait             After each action, waits for server response before continuing.
 	<server-details>   Set of server details, of the format: "Name,Addr,TLS", where Addr is like "localhost:6667" and TLS is either "yes" or "no".
 
@@ -68,6 +69,36 @@ Options:
 			fmt.Println("Running server", newServer.Name, ":", newServer.Addr)
 
 			servers[newServer.Name] = &newServer
+		}
+
+		// create event queues
+		eventQueues := make([]stress.EventQueue, 0)
+
+		// make clients
+		clientCount, err := strconv.Atoi(arguments["--clients"].(string))
+		if err != nil || clientCount < 1 {
+			log.Fatal("Not a real number of clients:", arguments["--clients"].(string))
+		}
+
+		clients := make(map[int]*stress.Client)
+		for i := 0; i < clientCount; i++ {
+			var newClient stress.Client
+			newClient.Nick = fmt.Sprintf("cli%d", i)
+
+			// for now we'll just have one event list per client for simplicity
+			events := make(stress.EventQueue, 0)
+			events = append(events, stress.Event{
+				Client: &newClient,
+				Type:   stress.ETConnect,
+			})
+			events = append(events, stress.Event{
+				Client: &newClient,
+				Type:   stress.ETDisconnect,
+			})
+
+			eventQueues = append(eventQueues, events)
+
+			clients[i] = &newClient
 		}
 	}
 }

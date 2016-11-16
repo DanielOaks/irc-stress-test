@@ -97,6 +97,24 @@ Options:
 				Client: i,
 				Type:   stress.ETConnect,
 			})
+
+			// send NICK+USER
+			// events.Events = append(events.Events, stress.Event{
+			// 	Client: i,
+			// 	Type:   stress.ETLine,
+			// 	Line:   fmt.Sprintf("CAP END\r\n", newClient.Nick),
+			// })
+			events.Events = append(events.Events, stress.Event{
+				Client: i,
+				Type:   stress.ETLine,
+				Line:   fmt.Sprintf("NICK %s\r\n", newClient.Nick),
+			})
+			events.Events = append(events.Events, stress.Event{
+				Client: i,
+				Type:   stress.ETLine,
+				Line:   "USER test 0 * :I am a cool person!\r\n",
+			})
+
 			//TODO(dan): send NICK/USER
 			events.Events = append(events.Events, stress.Event{
 				Client: i,

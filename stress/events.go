@@ -39,8 +39,7 @@ func (queue EventQueue) Run(server *Server, clients map[int]*Client) {
 			client.Disconnect(server)
 			client.Socket = nil
 		} else if event.Type == ETLine {
-			line := *event.Line
-			client.Socket.Write(line)
+			client.Socket.Write(event.Line)
 		} else if event.Type == ETWait {
 			log.Println("ETWait events not yet implemented")
 		} else {
@@ -79,6 +78,6 @@ type WaitMessage struct {
 type Event struct {
 	Client int
 	Type   EventType
-	Line   *string
+	Line   string
 	Wait   *WaitMessage
 }

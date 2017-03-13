@@ -49,12 +49,15 @@ func (c *Client) Disconnect(s *Server) {
 		//TODO(dan): mark as closed badly
 	} else {
 		//DEBUG(dan): log.Println(c.Nick, "disconnecting")
-		c.Socket.WriteLine("QUIT\r\n")
+		c.Socket.WriteLine("QUIT")
 		// wait 'til we get ERROR message back
+		var lastLine string
+		var totalLines int
 		for {
 			line, err := c.Socket.Read()
 			if err != nil {
 				log.Println("Disconnected incorrectly 1:", err.Error())
+				log.Println("last line:", totalLines, ":", lastLine)
 				//TODO(dan): mark as closed badly
 				break
 			}
@@ -67,8 +70,13 @@ func (c *Client) Disconnect(s *Server) {
 				break
 			}
 
+			// fmt.Println(c.Nick, line)
+			lastLine = line
+			totalLines++
+
 			if strings.ToUpper(msg.Command) == "ERROR" {
 				//TODO(dan): mark as closed nicely
+				s.Succeeded++
 				break
 			}
 		}

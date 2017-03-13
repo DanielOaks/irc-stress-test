@@ -6,11 +6,14 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/DanielOaks/irc-stress-test/stress"
 	"github.com/docopt/docopt-go"
+	"github.com/olekukonko/tablewriter"
 )
 
 func main() {
@@ -68,7 +71,7 @@ Options:
 				},
 			}
 
-			fmt.Println("Running server", newServer.Name, ":", newServer.Conn.Address)
+			fmt.Println("Testing server", newServer.Name, "at", newServer.Conn.Address)
 
 			servers[newServer.Name] = &newServer
 		}
@@ -130,6 +133,7 @@ Options:
 
 			// start each event queue
 			for _, events := range eventQueues {
+				time.Sleep(time.Millisecond * 3)
 				go events.Run(server, clients)
 			}
 
@@ -137,6 +141,17 @@ Options:
 			for _, events := range eventQueues {
 				<-events.Finished
 			}
+
+			data := [][]string{
+				[]string{"Total Clients", strconv.Itoa(clientCount)},
+				[]string{"Successful Clients", strconv.Itoa(server.Succeeded)},
+			}
+
+			table := tablewriter.NewWriter(os.Stdout)
+			for _, v := range data {
+				table.Append(v)
+			}
+			table.Render() // Send output
 		}
 	}
 }

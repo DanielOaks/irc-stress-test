@@ -13,4 +13,7 @@ type ServerConnectionDetails struct {
 type Server struct {
 	Name string
 	Conn ServerConnectionDetails
+
+	// stats
+	Succeeded int
 }

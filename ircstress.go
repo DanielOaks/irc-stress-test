@@ -18,14 +18,19 @@ import (
 
 func main() {
 	usage := `ircstress.
+ircstress is intended to stress an IRC server through connect flooding, channel message flooding,
+client message flooding and 'regular' IRC client operations. It is primarily intended to be used
+during the development of IRC servers and to compare how well servers perform under load.
+
 Usage:
-	ircstress run [--clients=<num>] [--chan-ratio=<ratio>] [--chan-join-percent=<ratio>] [--queues=<num>] [--wait] <server-details>...
+	ircstress connectflood [--clients=<num>] [--queues=<num>] [--wait] <server-details>...
+	ircstress chanflood [--clients=<num>] [--queues=<num>] [--wait] [--chan=<name>] <server-details>...
 	ircstress -h | --help
 	ircstress --version
+
 Options:
-	--clients=<num>              The number of clients that should connect [default: 10000].
-	--channels=<chans>           How many channels exist, limited to number of clients [default: 1000].
-	--chan-join-percent=<ratio>  How likely each client is to join one or more channels [default: 0.9].
+	--clients=<num>    The number of clients that should connect [default: 10000].
+	--chan=<name>      Channel name to join [default: #test].
 
 	--queues=<num>     How many queues to run events on, limited to number of clients [default: 3].
 	--wait             After each action, waits for server response before continuing.
@@ -36,7 +41,7 @@ Options:
 
 	arguments, _ := docopt.Parse(usage, nil, true, stress.SemVer, false)
 
-	if arguments["run"].(bool) {
+	if arguments["connectflood"].(bool) || arguments["chanflood"].(bool) {
 		// run string
 		var optionString string
 		if !arguments["--wait"].(bool) {
@@ -117,6 +122,19 @@ Options:
 				Type:   stress.ETLine,
 				Line:   "USER test 0 * :I am a cool person!\r\n",
 			})
+
+			if arguments["chanflood"].(bool) {
+				events.Events = append(events.Events, stress.Event{
+					Client: i,
+					Type:   stress.ETLine,
+					Line:   fmt.Sprintf("JOIN %s\r\n", arguments["--chan"].(string)),
+				})
+				events.Events = append(events.Events, stress.Event{
+					Client: i,
+					Type:   stress.ETLine,
+					Line:   fmt.Sprintf("PRIVMSG %s :Test string to flood with here\r\n", arguments["--chan"].(string)),
+				})
+			}
 
 			//TODO(dan): send NICK/USER
 			events.Events = append(events.Events, stress.Event{

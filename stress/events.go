@@ -31,6 +31,7 @@ func (queue EventQueue) Run(server *Server, clients map[int]*Client) {
 		client := clients[event.Client]
 
 		if event.Type == ETConnect {
+			fmt.Println("c", client.Nick)
 			err := client.Connect(server)
 			if err != nil {
 				log.Fatal("Could not connect...", err.Error())

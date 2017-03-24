@@ -139,6 +139,7 @@ Options:
 
 			// wait for each of them to be finished
 			for _, events := range eventQueues {
+				fmt.Println("Waiting for", events.Events)
 				<-events.Finished
 			}
 

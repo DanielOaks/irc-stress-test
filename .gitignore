@@ -95,3 +95,4 @@ _testmain.go
 
 ### ircstress ###
 /ircstress
+/nicks*.txt

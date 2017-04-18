@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"io/ioutil"
+
 	"github.com/DanielOaks/irc-stress-test/stress"
 	"github.com/docopt/docopt-go"
 	"github.com/olekukonko/tablewriter"
@@ -23,12 +25,14 @@ client message flooding and 'regular' IRC client operations. It is primarily int
 during the development of IRC servers and to compare how well servers perform under load.
 
 Usage:
-	ircstress connectflood [--clients=<num>] [--queues=<num>] [--wait] <server-details>...
-	ircstress chanflood [--clients=<num>] [--queues=<num>] [--wait] [--chan=<name>] <server-details>...
+	ircstress connectflood [--nicks=<file>] [--random-nicks] [--clients=<num>] [--queues=<num>] [--wait] <server-details>...
+	ircstress chanflood [--nicks=<file>] [--random-nicks] [--clients=<num>] [--queues=<num>] [--wait] [--chan=<name>] <server-details>...
 	ircstress -h | --help
 	ircstress --version
 
 Options:
+	--nicks=<file>     List to grab nicks from, separated by newlines [default: use counter].
+	--random-nicks     If nicklist is given, randomise order of used nicks.
 	--clients=<num>    The number of clients that should connect [default: 10000].
 	--chan=<name>      Channel name to join [default: #test].
 
@@ -37,11 +41,31 @@ Options:
 	<server-details>   Set of server details, of the format: "Name,Addr,TLS", where Addr is like "localhost:6667" and TLS is either "yes" or "no".
 
 	-h --help          Show this screen.
-	--version          Show version.`
+	--version          Show version.
+
+Examples:
+	go run ircstress.go chanflood --clients=2000 --wait local,localhost:6667,no
+		Tests a local server with 2000 clients, connecting to channel #test.`
 
 	arguments, _ := docopt.Parse(usage, nil, true, stress.SemVer, false)
 
 	if arguments["connectflood"].(bool) || arguments["chanflood"].(bool) {
+		// get nicks
+		var ns *stress.NickSelector
+		if arguments["--nicks"].(string) == "use counter" {
+			// do nothing
+		} else {
+			// load given nick list
+			listBytes, err := ioutil.ReadFile(arguments["--nicks"].(string))
+			if err != nil {
+				log.Fatal("Could not load nickList:", err.Error())
+			}
+			ns = stress.NickSelectorFromList(string(listBytes))
+			if arguments["--random-nicks"].(bool) {
+				ns.RandomNickOrder = true
+			}
+		}
+
 		// run string
 		var optionString string
 		if !arguments["--wait"].(bool) {
@@ -93,8 +117,14 @@ Options:
 		clients := make(map[int]*stress.Client)
 		for i := 0; i < clientCount; i++ {
 			var newClient *stress.Client
-			newClient = &stress.Client{
-				Nick: fmt.Sprintf("cli%d", i),
+			if ns == nil {
+				newClient = &stress.Client{
+					Nick: fmt.Sprintf("cli%d", i),
+				}
+			} else {
+				newClient = &stress.Client{
+					Nick: ns.GetNick(),
+				}
 			}
 
 			clients[i] = newClient

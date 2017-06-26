@@ -8,9 +8,9 @@ import (
 	"log"
 	"net"
 
-	"strings"
+	"github.com/goshuirc/irc-go/ircmsg"
 
-	"github.com/DanielOaks/girc-go/ircmsg"
+	"strings"
 )
 
 // Client is a client connection (shared between server tests)

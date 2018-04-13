@@ -193,7 +193,7 @@ Examples:
 
 			data := [][]string{
 				[]string{"Total Clients", strconv.Itoa(clientCount)},
-				[]string{"Successful Clients", strconv.Itoa(server.Succeeded)},
+				[]string{"Successful Clients", strconv.Itoa(int(server.Succeeded()))},
 			}
 
 			table := tablewriter.NewWriter(os.Stdout)

@@ -25,11 +25,16 @@ func (c *Client) Connect(s *Server) error {
 	var conn net.Conn
 	var err error
 
+	addr := strings.TrimPrefix(s.Conn.Address, "unix:")
+
 	if s.Conn.IsTLS {
-		conn, err = tls.Dial("tcp", s.Conn.Address, nil)
+		conn, err = tls.Dial("tcp", addr, nil)
+	} else if strings.HasPrefix(addr, "/") {
+		conn, err = net.Dial("unix", addr)
 	} else {
 		conn, err = net.Dial("tcp", s.Conn.Address)
 	}
+
 	if err != nil {
 		log.Fatal("Could not connect:", err.Error())
 		return err
@@ -76,7 +81,7 @@ func (c *Client) Disconnect(s *Server) {
 
 			if strings.ToUpper(msg.Command) == "ERROR" {
 				//TODO(dan): mark as closed nicely
-				s.Succeeded++
+				s.RecordSuccess()
 				break
 			}
 		}

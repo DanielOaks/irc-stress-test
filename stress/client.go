@@ -76,7 +76,7 @@ func (c *Client) Disconnect(s *Server) {
 
 			if strings.ToUpper(msg.Command) == "ERROR" {
 				//TODO(dan): mark as closed nicely
-				s.Succeeded++
+				s.RecordSuccess()
 				break
 			}
 		}

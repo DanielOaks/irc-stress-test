@@ -3,7 +3,10 @@
 
 package stress
 
-import "sync/atomic"
+import (
+	"sync"
+	"sync/atomic"
+)
 
 // ServerConnectionDetails holds the details used to connect to the server.
 type ServerConnectionDetails struct {
@@ -15,6 +18,9 @@ type ServerConnectionDetails struct {
 type Server struct {
 	// stats
 	succeeded uint64 // align to 64-bit boundary
+
+	ClientsReadyToDisconnect sync.WaitGroup
+	ClientsFinished          sync.WaitGroup
 
 	Name string
 	Conn ServerConnectionDetails

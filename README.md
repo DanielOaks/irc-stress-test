@@ -14,7 +14,9 @@ By default, we only wait for the final `QUIT` message to be processed (i.e. for 
 
 ## Recommendations
 
+* Ensure that both the server and the stress test are allowed to open enough file descriptors to complete the test (check the output of `ulimit` or the contents of `/proc/${pid}/limits`).
 * Test over localhost.
 * Disable ident lookup.
 * Disable connection limits.
 * Disable rate limiting.
+* Check `dmesg` for warnings about SYN flooding and adjust `net.ipv4.tcp_max_syn_backlog` as necessary

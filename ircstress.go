@@ -105,16 +105,15 @@ Examples:
 			servers[newServer.Name] = &newServer
 		}
 
-		// create event queues
-		eventQueues := make([]stress.EventQueue, 0)
-
-		// make clients
 		clientCount, err := strconv.Atoi(arguments["--clients"].(string))
 		if err != nil || clientCount < 1 {
-			log.Fatal("Not a real number of clients:", arguments["--clients"].(string))
+			log.Fatal("Invalid number of clients:", arguments["--clients"].(string))
 		}
 
-		clients := make(map[int]*stress.Client)
+		// create event queues
+		eventQueues := make([]stress.EventQueue, clientCount)
+		var deliberateDisconnects int
+
 		for i := 0; i < clientCount; i++ {
 			var newClient *stress.Client
 			if ns == nil {
@@ -127,69 +126,60 @@ Examples:
 				}
 			}
 
-			clients[i] = newClient
-
 			// for now we'll just have one event list per client for simplicity
-			events := stress.NewEventQueue()
+			events := stress.NewEventQueue(i)
 			events.Events = append(events.Events, stress.Event{
-				Client: i,
-				Type:   stress.ETConnect,
+				Type: stress.ETConnect,
 			})
 
 			// send NICK+USER
 			// events.Events = append(events.Events, stress.Event{
-			// 	Client: i,
 			// 	Type:   stress.ETLine,
 			// 	Line:   fmt.Sprintf("CAP END\r\n", newClient.Nick),
 			// })
 			events.Events = append(events.Events, stress.Event{
-				Client: i,
-				Type:   stress.ETLine,
-				Line:   fmt.Sprintf("NICK %s\r\n", newClient.Nick),
+				Type: stress.ETLine,
+				Line: fmt.Sprintf("NICK %s\r\n", newClient.Nick),
 			})
 			events.Events = append(events.Events, stress.Event{
-				Client: i,
-				Type:   stress.ETLine,
-				Line:   "USER test 0 * :I am a cool person!\r\n",
+				Type: stress.ETLine,
+				Line: "USER test 0 * :I am a cool person!\r\n",
 			})
 
 			if arguments["chanflood"].(bool) {
 				events.Events = append(events.Events, stress.Event{
-					Client: i,
-					Type:   stress.ETLine,
-					Line:   fmt.Sprintf("JOIN %s\r\n", arguments["--chan"].(string)),
+					Type: stress.ETLine,
+					Line: fmt.Sprintf("JOIN %s\r\n", arguments["--chan"].(string)),
 				})
 				events.Events = append(events.Events, stress.Event{
-					Client: i,
-					Type:   stress.ETLine,
-					Line:   fmt.Sprintf("PRIVMSG %s :Test string to flood with here\r\n", arguments["--chan"].(string)),
+					Type: stress.ETLine,
+					Line: fmt.Sprintf("PRIVMSG %s :Test string to flood with here\r\n", arguments["--chan"].(string)),
 				})
 			}
 
 			//TODO(dan): send NICK/USER
 			events.Events = append(events.Events, stress.Event{
-				Client: i,
-				Type:   stress.ETDisconnect,
+				Type: stress.ETDisconnect,
 			})
+			deliberateDisconnects++
 
-			eventQueues = append(eventQueues, events)
+			eventQueues[i] = events
 		}
 
 		// run for each server
 		for name, server := range servers {
 			fmt.Println("Testing", name)
+			server.ClientsReadyToDisconnect.Add(deliberateDisconnects)
+			server.ClientsFinished.Add(clientCount)
 
 			// start each event queue
 			for _, events := range eventQueues {
 				time.Sleep(time.Millisecond * 3)
-				go events.Run(server, clients)
+				go events.Run(server)
 			}
 
 			// wait for each of them to be finished
-			for _, events := range eventQueues {
-				fmt.Println("Waiting for", events.Events)
-				<-events.Finished
-			}
+			server.ClientsFinished.Wait()
 
 			data := [][]string{
 				[]string{"Total Clients", strconv.Itoa(clientCount)},

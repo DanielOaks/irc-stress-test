@@ -5,6 +5,7 @@ package stress
 
 import (
 	"crypto/tls"
+	"fmt"
 	"log"
 	"net"
 
@@ -13,26 +14,32 @@ import (
 	"strings"
 )
 
-// Client is a client connection (shared between server tests)
+// Client is a client connection
 type Client struct {
 	Nick   string
 	Socket *Socket
 }
 
+func NewClient(id int) Client {
+	return Client{
+		Nick: fmt.Sprintf("ircstress_%d", id),
+	}
+}
+
 // Connect connects to the given server
-func (c *Client) Connect(s *Server) error {
+func (c *Client) Connect(server *Server) error {
 	// connect
 	var conn net.Conn
 	var err error
 
-	addr := strings.TrimPrefix(s.Conn.Address, "unix:")
+	addr := strings.TrimPrefix(server.Conn.Address, "unix:")
 
-	if s.Conn.IsTLS {
+	if server.Conn.IsTLS {
 		conn, err = tls.Dial("tcp", addr, nil)
 	} else if strings.HasPrefix(addr, "/") {
 		conn, err = net.Dial("unix", addr)
 	} else {
-		conn, err = net.Dial("tcp", s.Conn.Address)
+		conn, err = net.Dial("tcp", server.Conn.Address)
 	}
 
 	if err != nil {
@@ -48,11 +55,15 @@ func (c *Client) Connect(s *Server) error {
 }
 
 // Disconnect disconnects from the given server
-func (c *Client) Disconnect(s *Server) {
+func (c *Client) Disconnect(server *Server) {
+	// issue #4: report to other clients that we are ready to disconnect
+	server.ClientsReadyToDisconnect.Done()
 	if c.Socket.Closed {
 		log.Println("Disconnected early")
 		//TODO(dan): mark as closed badly
 	} else {
+		// wait for everyone to else to report the same
+		server.ClientsReadyToDisconnect.Wait()
 		//DEBUG(dan): log.Println(c.Nick, "disconnecting")
 		c.Socket.WriteLine("QUIT")
 		// wait 'til we get ERROR message back
@@ -81,7 +92,7 @@ func (c *Client) Disconnect(s *Server) {
 
 			if strings.ToUpper(msg.Command) == "ERROR" {
 				//TODO(dan): mark as closed nicely
-				s.RecordSuccess()
+				server.RecordSuccess()
 				break
 			}
 		}

@@ -12,24 +12,25 @@ import (
 
 // EventQueue represents a series of events.
 type EventQueue struct {
-	Events   []Event
-	Finished chan bool
+	Client Client
+	Events []Event
+	id     int
 }
 
 // NewEventQueue returns a new EventQueue
-func NewEventQueue() EventQueue {
+func NewEventQueue(id int) EventQueue {
 	events := EventQueue{
-		Events:   make([]Event, 0),
-		Finished: make(chan bool),
+		Events: make([]Event, 0),
+		Client: NewClient(id),
+		id:     id,
 	}
 	return events
 }
 
 // Run goes through our event list.
-func (queue EventQueue) Run(server *Server, clients map[int]*Client) {
+func (queue EventQueue) Run(server *Server) {
+	client := &queue.Client
 	for _, event := range queue.Events {
-		client := clients[event.Client]
-
 		if event.Type == ETConnect {
 			fmt.Println("c", client.Nick)
 			err := client.Connect(server)
@@ -50,7 +51,7 @@ func (queue EventQueue) Run(server *Server, clients map[int]*Client) {
 		}
 	}
 	// send finished notice, used for syncing
-	queue.Finished <- true
+	server.ClientsFinished.Done()
 }
 
 // EventType is the type of event it is.
@@ -77,8 +78,7 @@ type WaitMessage struct {
 
 // Event is an IRC event.
 type Event struct {
-	Client int
-	Type   EventType
-	Line   string
-	Wait   *WaitMessage
+	Type EventType
+	Line string
+	Wait *WaitMessage
 }

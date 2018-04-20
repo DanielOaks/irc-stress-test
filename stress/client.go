@@ -8,22 +8,121 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"sync"
 
-	"github.com/goshuirc/irc-go/ircmsg"
+	//"github.com/goshuirc/irc-go/ircmsg"
 
+	"strconv"
 	"strings"
 )
 
 // Client is a client connection
 type Client struct {
+	sync.Mutex
+
 	Nick   string
 	Socket *Socket
+	closed chan bool
+
+	pongEvent chan bool
+
+	closeExpected bool
+	pingCounter   uint64
+	lastPong      uint64
+	lastLine      string
+	totalLines    int
 }
 
 func NewClient(id int) Client {
 	return Client{
-		Nick: fmt.Sprintf("ircstress_%d", id),
+		Nick:        fmt.Sprintf("ircstress_%d", id),
+		closed:      make(chan bool, 1),
+		pongEvent:   make(chan bool, 1),
+		pingCounter: 1,
 	}
+}
+
+func (client *Client) SetCloseExpected(val bool) {
+	client.Lock()
+	defer client.Unlock()
+	client.closeExpected = val
+}
+
+func (client *Client) CloseExpected() bool {
+	client.Lock()
+	defer client.Unlock()
+	return client.closeExpected
+}
+
+func (client *Client) recordPong(pong uint64) {
+	client.Lock()
+	defer client.Unlock()
+	if pong > client.lastPong {
+		client.lastPong = pong
+	}
+}
+
+func (client *Client) LastPong() uint64 {
+	client.Lock()
+	defer client.Unlock()
+	return client.lastPong
+}
+
+func (client *Client) Ping() {
+	client.Lock()
+	ping := client.pingCounter
+	client.pingCounter++
+	client.Unlock()
+
+	client.Socket.Write(fmt.Sprintf("PING %d\r\n", ping))
+	for {
+		<-client.pongEvent
+		if client.LastPong() >= ping {
+			return
+		}
+	}
+}
+
+func (client *Client) readLoop(server *Server) {
+	quitRecvd := false
+
+	for {
+		line, err := client.Socket.Read()
+		if err != nil && !quitRecvd {
+			log.Println("Disconnected incorrectly 1:", err.Error())
+			log.Println("last line:", client.totalLines, ":", client.lastLine)
+			//TODO(dan): mark as closed badly
+		}
+		if err != nil {
+			break
+		}
+
+		if strings.HasPrefix(line, "ERROR Quit") {
+			if client.CloseExpected() {
+				server.RecordSuccess()
+				quitRecvd = true
+			} else {
+				log.Println(client.Nick, "unexpected quit")
+			}
+		} else {
+			pieces := strings.Split(line, " ")
+			if len(pieces) > 1 && pieces[len(pieces)-2] == "PONG" {
+				pongArg, err := strconv.ParseUint(pieces[len(pieces)-1], 10, 64)
+				if err == nil {
+					client.recordPong(pongArg)
+					// set the pong flag, wake if necessary, no-op if set
+					select {
+					case client.pongEvent <- true:
+					default:
+					}
+				}
+			}
+		}
+
+		client.lastLine = line
+		client.totalLines++
+	}
+	client.closed <- true
 }
 
 // Connect connects to the given server
@@ -51,6 +150,8 @@ func (c *Client) Connect(server *Server) error {
 	socket := NewSocket(conn)
 	c.Socket = &socket
 
+	go c.readLoop(server)
+
 	return nil
 }
 
@@ -64,38 +165,10 @@ func (c *Client) Disconnect(server *Server) {
 	} else {
 		// wait for everyone to else to report the same
 		server.ClientsReadyToDisconnect.Wait()
-		//DEBUG(dan): log.Println(c.Nick, "disconnecting")
+		log.Println(c.Nick, "disconnecting")
+		c.SetCloseExpected(true)
 		c.Socket.WriteLine("QUIT")
-		// wait 'til we get ERROR message back
-		var lastLine string
-		var totalLines int
-		for {
-			line, err := c.Socket.Read()
-			if err != nil {
-				log.Println("Disconnected incorrectly 1:", err.Error())
-				log.Println("last line:", totalLines, ":", lastLine)
-				//TODO(dan): mark as closed badly
-				break
-			}
-			//DEBUG(dan): log.Println(c.Nick, "got line:", strings.TrimSpace(line))
-
-			msg, err := ircmsg.ParseLine(line)
-			if err != nil {
-				log.Println("Disconnected incorrectly 2:", err.Error())
-				//TODO(dan): mark as closed badly
-				break
-			}
-
-			// fmt.Println(c.Nick, line)
-			lastLine = line
-			totalLines++
-
-			if strings.ToUpper(msg.Command) == "ERROR" {
-				//TODO(dan): mark as closed nicely
-				server.RecordSuccess()
-				break
-			}
-		}
+		<-c.closed
 	}
 	c.Socket = nil
 }

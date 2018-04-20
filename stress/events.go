@@ -44,6 +44,8 @@ func (queue EventQueue) Run(server *Server) {
 			client.Socket.Write(event.Line)
 		} else if event.Type == ETWait {
 			log.Println("ETWait events not yet implemented")
+		} else if event.Type == ETPing {
+			client.Ping()
 		} else {
 			log.Println("Got unknown event type:", event.Type)
 			spew.Dump(event)
@@ -66,6 +68,8 @@ const (
 	ETLine
 	// ETWait represents the client waiting for a specific response from the server.
 	ETWait
+	// ETPing causes the client to send a ping, then wait for the specific response
+	ETPing
 )
 
 // WaitMessage is a message that the client should wait for.

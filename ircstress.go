@@ -6,6 +6,8 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"strconv"
 	"strings"
@@ -18,6 +20,17 @@ import (
 	"github.com/olekukonko/tablewriter"
 )
 
+func startPprof(port string) {
+	ps := http.Server{
+		Addr: fmt.Sprintf("localhost:%s", port),
+	}
+	go func() {
+		if err := ps.ListenAndServe(); err != nil {
+			log.Fatal("couldn't start pprof", err)
+		}
+	}()
+}
+
 func main() {
 	usage := `ircstress.
 ircstress is intended to stress an IRC server through connect flooding, channel message flooding,
@@ -25,8 +38,8 @@ client message flooding and 'regular' IRC client operations. It is primarily int
 during the development of IRC servers and to compare how well servers perform under load.
 
 Usage:
-	ircstress connectflood [--nicks=<file>] [--random-nicks] [--clients=<num>] [--queues=<num>] [--wait] <server-details>...
-	ircstress chanflood [--nicks=<file>] [--random-nicks] [--clients=<num>] [--queues=<num>] [--wait] [--chan=<name>] <server-details>...
+	ircstress connectflood [--nicks=<file>] [--random-nicks] [--clients=<num>] [--queues=<num>] [--wait] [--pprof-port=<num>] <server-details>...
+	ircstress chanflood [--nicks=<file>] [--random-nicks] [--clients=<num>] [--queues=<num>] [--wait] [--chan=<name>] [--pprof-port=<num>] <server-details>...
 	ircstress -h | --help
 	ircstress --version
 
@@ -38,6 +51,7 @@ Options:
 
 	--queues=<num>     How many queues to run events on, limited to number of clients [default: 3].
 	--wait             After each action, waits for server response before continuing.
+	--pprof-port=<num>     Start a pprof http endpoint for ircstress on this port
 	<server-details>   Set of server details, of the format: "Name,Addr,TLS", where Addr is like "localhost:6667" and TLS is either "yes" or "no".
 
 	-h --help          Show this screen.
@@ -64,6 +78,11 @@ Examples:
 			if arguments["--random-nicks"].(bool) {
 				ns.RandomNickOrder = true
 			}
+		}
+
+		port := arguments["--pprof-port"]
+		if port != nil {
+			startPprof(port.(string))
 		}
 
 		// run string
@@ -154,6 +173,9 @@ Examples:
 				events.Events = append(events.Events, stress.Event{
 					Type: stress.ETLine,
 					Line: fmt.Sprintf("PRIVMSG %s :Test string to flood with here\r\n", arguments["--chan"].(string)),
+				})
+				events.Events = append(events.Events, stress.Event{
+					Type: stress.ETPing,
 				})
 			}
 

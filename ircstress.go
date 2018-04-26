@@ -39,7 +39,7 @@ during the development of IRC servers and to compare how well servers perform un
 
 Usage:
 	ircstress connectflood [--nicks=<file>] [--random-nicks] [--clients=<num>] [--queues=<num>] [--wait] [--pprof-port=<num>] <server-details>...
-	ircstress chanflood [--nicks=<file>] [--random-nicks] [--clients=<num>] [--queues=<num>] [--wait] [--chan=<name>] [--pprof-port=<num>] <server-details>...
+	ircstress chanflood [--nicks=<file>] [--random-nicks] [--clients=<num>] [--queues=<num>] [--wait] [--chan=<name>] [--floodsize=<num>] [--pprof-port=<num>] <server-details>...
 	ircstress -h | --help
 	ircstress --version
 
@@ -48,6 +48,7 @@ Options:
 	--random-nicks     If nicklist is given, randomise order of used nicks.
 	--clients=<num>    The number of clients that should connect [default: 10000].
 	--chan=<name>      Channel name to join [default: #test].
+	--floodsize=<num>  Number of messages to flood with during chanflood [default: 1]
 
 	--queues=<num>     How many queues to run events on, limited to number of clients [default: 3].
 	--wait             After each action, waits for server response before continuing.
@@ -133,6 +134,19 @@ Examples:
 		eventQueues := make([]stress.EventQueue, clientCount)
 		var deliberateDisconnects int
 
+		var floodLines []string
+		if arguments["chanflood"].(bool) {
+			floodCount, err := strconv.Atoi(arguments["--floodsize"].(string))
+			if err != nil {
+				floodCount = 1
+			}
+			floodLines = make([]string, floodCount)
+			channelName :=arguments["--chan"].(string)
+			for i := 0; i < len(floodLines); i++ {
+				floodLines[i] = fmt.Sprintf("PRIVMSG %s :Test string %d to flood with here\r\n", channelName, i)
+			}
+		}
+
 		for i := 0; i < clientCount; i++ {
 			var newClient *stress.Client
 			if ns == nil {
@@ -170,10 +184,12 @@ Examples:
 					Type: stress.ETLine,
 					Line: fmt.Sprintf("JOIN %s\r\n", arguments["--chan"].(string)),
 				})
-				events.Events = append(events.Events, stress.Event{
-					Type: stress.ETLine,
-					Line: fmt.Sprintf("PRIVMSG %s :Test string to flood with here\r\n", arguments["--chan"].(string)),
-				})
+				for _, line := range floodLines {
+					events.Events = append(events.Events, stress.Event{
+						Type: stress.ETLine,
+						Line: line,
+					})
+				}
 				events.Events = append(events.Events, stress.Event{
 					Type: stress.ETPing,
 				})

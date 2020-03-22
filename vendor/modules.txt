@@ -1,0 +1,8 @@
+# github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815
+## explicit
+github.com/docopt/docopt-go
+# github.com/mattn/go-runewidth v0.0.7
+github.com/mattn/go-runewidth
+# github.com/olekukonko/tablewriter v0.0.4
+## explicit
+github.com/olekukonko/tablewriter

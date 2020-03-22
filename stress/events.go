@@ -6,8 +6,6 @@ package stress
 import (
 	"fmt"
 	"log"
-
-	"github.com/davecgh/go-spew/spew"
 )
 
 // EventQueue represents a series of events.
@@ -31,25 +29,23 @@ func NewEventQueue(id int) EventQueue {
 func (queue EventQueue) Run(server *Server) {
 	client := &queue.Client
 	for _, event := range queue.Events {
-		if event.Type == ETConnect {
+		switch event.Type {
+		case ETConnect:
 			fmt.Println("c", client.Nick)
 			err := client.Connect(server)
 			if err != nil {
 				log.Fatal("Could not connect...", err.Error())
 			}
-		} else if event.Type == ETDisconnect {
+		case ETDisconnect:
 			client.Disconnect(server)
-			client.Socket = nil
-		} else if event.Type == ETLine {
+		case ETLine:
 			client.Socket.Write(event.Line)
-		} else if event.Type == ETWait {
+		case ETWait:
 			log.Println("ETWait events not yet implemented")
-		} else if event.Type == ETPing {
+		case ETPing:
 			client.Ping()
-		} else {
-			log.Println("Got unknown event type:", event.Type)
-			spew.Dump(event)
-			fmt.Print("\n\n")
+		default:
+			panic(fmt.Sprintf("Unknown event type: %d", event.Type))
 		}
 	}
 	// send finished notice, used for syncing

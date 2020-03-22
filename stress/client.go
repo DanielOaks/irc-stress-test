@@ -16,6 +16,10 @@ import (
 	"strings"
 )
 
+var skipVerifyConfig = &tls.Config{
+	InsecureSkipVerify: true,
+}
+
 // Client is a client connection
 type Client struct {
 	sync.Mutex
@@ -134,7 +138,7 @@ func (c *Client) Connect(server *Server) error {
 	addr := strings.TrimPrefix(server.Conn.Address, "unix:")
 
 	if server.Conn.IsTLS {
-		conn, err = tls.Dial("tcp", addr, nil)
+		conn, err = tls.Dial("tcp", addr, skipVerifyConfig)
 	} else if strings.HasPrefix(addr, "/") {
 		conn, err = net.Dial("unix", addr)
 	} else {

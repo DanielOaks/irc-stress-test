@@ -38,7 +38,6 @@ func (queue EventQueue) Run(server *Server) {
 			}
 		case ETDisconnect:
 			client.Disconnect(server)
-			client.Socket = nil
 		case ETLine:
 			client.Socket.Write(event.Line)
 		case ETWait:

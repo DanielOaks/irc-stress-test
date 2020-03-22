@@ -174,5 +174,4 @@ func (c *Client) Disconnect(server *Server) {
 		c.Socket.WriteLine("QUIT")
 		<-c.closed
 	}
-	c.Socket = nil
 }
